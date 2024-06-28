@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>bacabukuyuk.id</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      background-color: #6D9DC5;
+      padding: 10px 20px;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    header nav ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+
+    header nav ul li {
+      margin-left: 20px;
+    }
+
+    header nav ul li a {
+      color: white;
+      text-decoration: none;
+      font-size: 16px;
+    }
+
+    #map {
+      height: calc(100vh - 50px);
+      width: 100%;
+    }
+
+    .menu {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      display: flex;
+      flex-direction: column;
+      z-index: 1000;
+    }
+
+    .menu button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+
+    .menu button img {
+      width: 50px;
+      height: 50px;
+    }
+
+    .popup {
+      position: absolute;
+      top: 50px;
+      right: 0;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      width: 30%;
+      max-width: 400px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .popup.open {
+      transform: translateX(0);
+    }
+
+    .popup h2 {
+      margin-top: 0;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .popup form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .popup label {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #444;
+    }
+
+    .popup input {
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .popup button {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #F2C94C;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .popup button#close-popup {
+      background: none;
+      color: #6D9DC5;
+      font-size: 20px;
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      border: none;
+    }
+
+    #about-popup {
+      width: 50%;
+    }
+
+    .match {
+      filter: hue-rotate(90deg);
+    }
+
+    .no-match {
+      filter: hue-rotate(0deg);
+    }
+
+    #buy-popup ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    #buy-popup ul li {
+      margin: 10px 0;
+      padding: 10px;
+      background: #f0f0f0;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>bacabukuyuk.id</h1>
+    <nav>
+      <ul>
+        <li><a href="#" id="about-us">about us</a></li>
+      </ul>
+    </nav>
+  </header>
+  
+  <div id="map"></div>
+
+  <div class="menu">
+    <button id="search-button">
+      <img src="book-icon.png" alt="Cari Buku">
+    </button>
+    <button id="buy-button">
+      <img src="cart-icon.png" alt="Beli Sekarang">
+    </button>
+  </div>
+
+  <div id="search-popup" class="popup">
+    <h2>CARI TOKO BUKUMU</h2>
+    <form>
+      <label for="jenis-buku">Jenis Buku</label>
+      <input type="text" id="jenis-buku" name="jenis-buku">
+      <label for="tahun-terbit">Tahun Terbit</label>
+      <input type="text" id="tahun-terbit" name="tahun-terbit">
+      <label for="judul-buku">Judul Buku</label>
+      <input type="text" id="judul-buku" name="judul-buku">
+      <label for="penulis-buku">Penulis Buku</label>
+      <input type="text" id="penulis-buku" name="penulis-buku">
+      <button type="submit" id="filter-button">cari</button>
+    </form>
+    <button id="close-popup">➔</button>
+  </div>
+
+  <div id="about-popup" class="popup">
+    <h2>About Us</h2>
+    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam accumsan, lorem ut bibendum tristique, metus nunc posuere turpis, nec congue dolor arcu ac ex. Integer non scelerisque metus.</p>
+    <button id="close-about-popup">Close</button>
+  </div>
+
+  <div id="buy-popup" class="popup">
+    <h2>5 Toko Buku Terdekat</h2>
+    <ul id="store-list"></ul>
+    <button id="close-buy-popup">Close</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const map = L.map('map').setView([-7.95, 110.6], 12);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
+
+      let userLocation = null;
+      let routingControl = null;
+
+      map.on('dblclick', function(e) {
+        if (userLocation) {
+          map.removeLayer(userLocation);
+        }
+        userLocation = L.marker(e.latlng).addTo(map).bindPopup('Lokasi Anda').openPopup();
+      });
+
+      const stores = [
+        { name: "Tsalatsah Book Store", coords: [-7.929854468904086, 110.66903116910446], jenis: "Novel", tahun: "2021", judul: "Book A", penulis: "Author A" },
+        { name: "ACHEL'S BOOKMART", coords: [-7.935709334980352, 110.59925240340459], jenis: "Komik", tahun: "2019", judul: "Book B", penulis: "Author B" },
+        { name: "Buku & Kitab Amanah", coords: [-7.942850007045208, 110.57300459980215], jenis: "Fiksi", tahun: "2018", judul: "Book C", penulis: "Author C" },
+        { name: "Toko Buku Azizah", coords: [-7.948184178085093, 110.590245724378], jenis: "Non-Fiksi", tahun: "2020", judul: "Book D", penulis: "Author D" },
+        { name: "Toko mainan dan buku Dunia Ilmu 2", coords: [-7.971311134522699, 110.59547290737227], jenis: "Novel", tahun: "2017", judul: "Book E", penulis: "Author E" },
+        { name: "Kutu Buku", coords: [-7.9662950426659265, 110.60556210503962], jenis: "Komik", tahun: "2021", judul: "Book F", penulis: "Author F" },
+        { name: "Toko Buku Wonosari Gunung Kidul", coords: [-7.965154201179676, 110.60775630804562], jenis: "Fiksi", tahun: "2019", judul: "Book G", penulis: "Author G" },
+        { name: "Toko Buku Estu", coords: [-7.9695002469714025, 110.6043552933863], jenis: "Non-Fiksi", tahun: "2022", judul: "Book H", penulis: "Author H" },
+        { name: "Toko Buku dan Alat Tulis Acitya", coords: [-7.961840310216354, 110.61675254039798], jenis: "Novel", tahun: "2018", judul: "Book I", penulis: "Author I" },
+        { name: "Buku Akik", coords: [-7.695187379771607, 110.40932366705493], jenis: "Komik", tahun: "2020", judul: "Book J", penulis: "Author J" },
+        { name: "Social Agency Baru", coords: [-7.7757251209845135, 110.34683137142876], jenis: "Fiksi", tahun: "2021", judul: "Book K", penulis: "Author K" },
+        { name: "Solusi Buku", coords: [-7.728557680110026, 110.43083576237068], jenis: "Non-Fiksi", tahun: "2019", judul: "Book L", penulis: "Author L" },
+        { name: "Togamas Affandi", coords: [-7.7576911355457305, 110.40820124592246], jenis: "Novel", tahun: "2018", judul: "Book M", penulis: "Author M" },
+        { name: "Bawa Buku", coords: [-7.80997642316881, 110.36072164695256], jenis: "Komik", tahun: "2017", judul: "Book N", penulis: "Author N" },
+        { name: "Bumifiksi Jogja", coords: [-7.771667604378315, 110.39783932643199], jenis: "Fiksi", tahun: "2020", judul: "Book O", penulis: "Author O" },
+        { name: "Social Agency Ambarrukmo", coords: [-7.7813562966863445, 110.40204473995456], jenis: "Non-Fiksi", tahun: "2021", judul: "Book P", penulis: "Author P" },
+        { name: "Bintang Media", coords: [-7.803182810773079, 110.33044744957017], jenis: "Novel", tahun: "2019", judul: "Book Q", penulis: "Author Q" },
+        { name: "Griya Sunnah Islamic Bookstore", coords: [-7.6904324285764565, 110.44197798374829], jenis: "Komik", tahun: "2018", judul: "Book R", penulis: "Author R" },
+        { name: "Toko Buku Gema Insani", coords: [-7.750875046506796, 110.38405754168825], jenis: "Fiksi", tahun: "2020", judul: "Book S", penulis: "Author S" },
+        { name: "Sarana Hidayah Book Store", coords: [-7.764682499411106, 110.38536930266417], jenis: "Non-Fiksi", tahun: "2017", judul: "Book T", penulis: "Author T" },
+        { name: "Pustaka Agency", coords: [-7.781155049264413, 110.37500529900966], jenis: "Novel", tahun: "2021", judul: "Book U", penulis: "Author U" },
+        { name: "Insan Books", coords: [-7.7692164634325716, 110.40474985783253], jenis: "Komik", tahun: "2019", judul: "Book V", penulis: "Author V" },
+        { name: "Toko Buku Menara Kudus", coords: [-7.802703050730839, 110.3708816844337], jenis: "Fiksi", tahun: "2018", judul: "Book W", penulis: "Author W" },
+        { name: "Amalia Bookstore", coords: [-7.795167645078863, 110.37608943895589], jenis: "Non-Fiksi", tahun: "2022", judul: "Book X", penulis: "Author X" },
+        { name: "Toko Buku Madah", coords: [-7.697679252288811, 110.35787262700174], jenis: "Novel", tahun: "2018", judul: "Book Y", penulis: "Author Y" },
+        { name: "Toko Buku Seni Rupa", coords: [-7.703451317030336, 110.37933329213622], jenis: "Komik", tahun: "2020", judul: "Book Z", penulis: "Author Z" },
+        { name: "Gramedia Jogja City Mall", coords: [-7.749808674455653, 110.36417336426994], jenis: "Fiksi", tahun: "2021", judul: "Book AA", penulis: "Author AA" },
+        { name: "Gramedia Pakuwon Mall", coords: [-7.75695398240458, 110.3997257073215], jenis: "Non-Fiksi", tahun: "2019", judul: "Book BB", penulis: "Author BB" },
+        { name: "Periplus Pakuwon Mall", coords: [-7.755673215502635, 110.4080188551733], jenis: "Novel", tahun: "2018", judul: "Book CC", penulis: "Author CC" },
+        { name: "Bookstore UII", coords: [-7.683771418320649, 110.42613124248282], jenis: "Komik", tahun: "2020", judul: "Book DD", penulis: "Author DD" },
+        { name: "Toko Kurnia Bantul", coords: [-7.879974827575372, 110.33177770672069], jenis: "Fiksi", tahun: "2017", judul: "Book EE", penulis: "Author EE" },
+        { name: "Social Agency Baru Bantul", coords: [-7.879294665213229, 110.35306371704189], jenis: "Non-Fiksi", tahun: "2021", judul: "Book FF", penulis: "Author FF" },
+        { name: "Toko Buku dan Kitab 'An Nur'", coords: [-7.865096729163106, 110.39405694754998], jenis: "Novel", tahun: "2019", judul: "Book GG", penulis: "Author GG" },
+        { name: "Obral Buku Jogja", coords: [-7.829999956833967, 110.36110373993878], jenis: "Komik", tahun: "2018", judul: "Book HH", penulis: "Author HH" },
+        { name: "Aurora Book Store", coords: [-7.823869212558584, 110.36651858625987], jenis: "Fiksi", tahun: "2020", judul: "Book II", penulis: "Author II" },
+        { name: "Toko Buku Menara Kudus", coords: [-7.8030770947979615, 110.36831842603102], jenis: "Non-Fiksi", tahun: "2021", judul: "Book JJ", penulis: "Author JJ" },
+        { name: "Toko Rukun", coords: [-7.803015960705801, 110.36677524940309], jenis: "Novel", tahun: "2019", judul: "Book KK", penulis: "Author KK" },
+        { name: "Toko Buku Bangkit", coords: [-7.79991188778533, 110.36819145173801], jenis: "Komik", tahun: "2018", judul: "Book LL", penulis: "Author LL" },
+        { name: "Shopping Book Center Jogja", coords: [-7.800555512483735, 110.36816413767461], jenis: "Fiksi", tahun: "2020", judul: "Book MM", penulis: "Author MM" },
+        { name: "Dian Pustaka", coords: [-7.800576660249882, 110.36813299534592], jenis: "Non-Fiksi", tahun: "2021", judul: "Book NN", penulis: "Author NN" },
+        { name: "Toko Buku Taman Pintar", coords: [-7.8002423736264515, 110.368171526031], jenis: "Novel", tahun: "2019", judul: "Book OO", penulis: "Author OO" },
+        { name: "Toko Buku Toho Putra", coords: [-7.8006886828426705, 110.3592879813088], jenis: "Komik", tahun: "2018", judul: "Book PP", penulis: "Author PP" },
+        { name: "Toko Buku Kauman Putra", coords: [-7.800943792047603, 110.3616483251494], jenis: "Fiksi", tahun: "2020", judul: "Book QQ", penulis: "Author QQ" },
+        { name: "Toko Buku Amalia", coords: [-7.79676047710404, 110.37123998000338], jenis: "Non-Fiksi", tahun: "2021", judul: "Book RR", penulis: "Author RR" },
+        { name: "Gramedia Malioboro Yogyakarta", coords: [-7.793064594769084, 110.36657362418144], jenis: "Novel", tahun: "2019", judul: "Book SS", penulis: "Author SS" },
+        { name: "The Lucky Boomerang Book Shop", coords: [-7.790942155854389, 110.36502170698947], jenis: "Komik", tahun: "2020", judul: "Book TT", penulis: "Author TT" },
+        { name: "Togamas Kotabaru", coords: [-7.78431612324375, 110.37491229349625], jenis: "Fiksi", tahun: "2021", judul: "Book UU", penulis: "Author UU" },
+        { name: "Gramedia Sudirman", coords: [-7.7831407623181175, 110.3744877069894], jenis: "Non-Fiksi", tahun: "2019", judul: "Book VV", penulis: "Author VV" },
+        { name: "Toko Buku Social Agency Baru Sagan", coords: [-7.7806900309603, 110.37944818185257], jenis: "Novel", tahun: "2018", judul: "Book WW", penulis: "Author WW" },
+        { name: "Kios Buku Terban", coords: [-7.781432411230466, 110.37349006651006], jenis: "Komik", tahun: "2020", judul: "Book XX", penulis: "Author XX" },
+        { name: "Muhammadiyah Book Store", coords: [-7.803392998311538, 110.36311499433045], jenis: "Fiksi", tahun: "2021", judul: "Book YY", penulis: "Author YY" },
+        { name: "Periplus Tirtodipuran", coords: [-7.816681414399956, 110.37591519146089], jenis: "Non-Fiksi", tahun: "2019", judul: "Book ZZ", penulis: "Author ZZ" },
+        { name: "Toko Buku Natan", coords: [-7.8225088186488225, 110.39879288121014], jenis: "Novel", tahun: "2020", judul: "Book AAA", penulis: "Author AAA" },
+        { name: "Periplus bandara YIA", coords: [-7.8926517588541305, 110.05696022783373], jenis: "Komik", tahun: "2018", judul: "Book BBB", penulis: "Author BBB" },
+        { name: "Toko Buku & Alat Tulis Sahabat", coords: [-7.860642953821646, 110.14983256883093], jenis: "Fiksi", tahun: "2021", judul: "Book CCC", penulis: "Author CCC" },
+        { name: "HONEY Bookstore", coords: [-7.911211516122904, 110.15463442809512], jenis: "Non-Fiksi", tahun: "2019", judul: "Book DDD", penulis: "Author DDD" },
+        { name: "Toko Anak Pintar", coords: [-7.896040749324836, 110.18757478133408], jenis: "Novel", tahun: "2020", judul: "Book EEE", penulis: "Author EEE" },
+        { name: "Deluna Books n Toys A14", coords: [-7.868975019404372, 110.17300285203525], jenis: "Komik", tahun: "2018", judul: "Book FFF", penulis: "Author FFF" },
+        { name: "Toko Laris", coords: [-7.85301942095519, 110.16160726995797], jenis: "Fiksi", tahun: "2021", judul: "Book GGG", penulis: "Author GGG" },
+        { name: "Toko Buku Aksara Wates", coords: [-7.863223071595179, 110.15022752550942], jenis: "Non-Fiksi", tahun: "2019", judul: "Book HHH", penulis: "Author HHH" },
+        { name: "Toko Andalas", coords: [-7.938992250087777, 110.23674896861377], jenis: "Novel", tahun: "2020", judul: "Book III", penulis: "Author III" }
+    ];
+
+      const markers = [];
+
+      stores.forEach(store => {
+        if (store.coords && store.coords.length === 2) {
+          const marker = L.marker(store.coords)
+            .addTo(map)
+            .bindPopup(store.name);
+          markers.push({ marker, store });
+        } else {
+          console.error("Invalid coordinates for store:", store.name);
+        }
+      });
+
+      document.getElementById('search-button').addEventListener('click', function() {
+        const popup = document.getElementById('search-popup');
+        popup.classList.toggle('open');
+      });
+
+      document.getElementById('close-popup').addEventListener('click', function() {
+        document.getElementById('search-popup').classList.remove('open');
+      });
+
+      document.getElementById('about-us').addEventListener('click', function() {
+        document.getElementById('about-popup').classList.add('open');
+      });
+
+      document.getElementById('close-about-popup').addEventListener('click', function() {
+        document.getElementById('about-popup').classList.remove('open');
+      });
+
+      document.getElementById('filter-button').addEventListener('click', function(e) {
+        e.preventDefault();
+        const jenisBuku = document.getElementById('jenis-buku').value.toLowerCase();
+        const tahunTerbit = document.getElementById('tahun-terbit').value.toLowerCase();
+        const judulBuku = document.getElementById('judul-buku').value.toLowerCase();
+        const penulisBuku = document.getElementById('penulis-buku').value.toLowerCase();
+
+        markers.forEach(({ marker, store }) => {
+          let match = true;
+
+          if (jenisBuku && !store.jenis.toLowerCase().includes(jenisBuku)) match = false;
+          if (tahunTerbit && !store.tahun.toLowerCase().includes(tahunTerbit)) match = false;
+          if (judulBuku && !store.judul.toLowerCase().includes(judulBuku)) match = false;
+          if (penulisBuku && !store.penulis.toLowerCase().includes(penulisBuku)) match = false;
+
+          if (match) {
+            marker._icon.classList.add('match');
+            marker._icon.classList.remove('no-match');
+          } else {
+            marker._icon.classList.add('no-match');
+            marker._icon.classList.remove('match');
+          }
+        });
+
+        document.getElementById('search-popup').classList.remove('open');
+      });
+
+      document.getElementById('buy-button').addEventListener('click', function() {
+        if (!userLocation) {
+          alert('Silakan pilih lokasi Anda dengan double klik pada peta.');
+          return;
+        }
+
+        const userLatLng = userLocation.getLatLng();
+        const distances = markers.map(({ store, marker }) => {
+          const dist = map.distance(userLatLng, marker.getLatLng());
+          return { store, marker, dist };
+        });
+
+        distances.sort((a, b) => a.dist - b.dist);
+
+        const nearestStores = distances.slice(0, 5);
+        const storeList = document.getElementById('store-list');
+        storeList.innerHTML = '';
+
+        nearestStores.forEach(({ store, dist }) => {
+          const li = document.createElement('li');
+          const distKm = (dist / 1000).toFixed(2);
+          const timeMin = (dist / 1000 / 40 * 60).toFixed(0); // assuming 40 km/h average speed
+          li.innerHTML = `${store.name} - ${distKm} km ${timeMin} menit`;
+          li.addEventListener('click', function() {
+            if (routingControl) {
+              map.removeControl(routingControl);
+            }
+
+            routingControl = L.Routing.control({
+              waypoints: [
+                userLatLng,
+                L.latLng(store.coords)
+              ],
+              routeWhileDragging: true
+            }).addTo(map);
+
+            map.setView(store.coords, 14);
+          });
+          storeList.appendChild(li);
+        });
+
+        document.getElementById('buy-popup').classList.add('open');
+      });
+
+      document.getElementById('close-buy-popup').addEventListener('click', function() {
+        document.getElementById('buy-popup').classList.remove('open');
+      });
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
